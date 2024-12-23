@@ -2,8 +2,9 @@
 
 using namespace I2CIP;
 
-I2CIP_DEVICE_INIT_STATIC_ID(ADS1115)
-// I2CIP_DEVICES_INIT_PROGMEM_ID(ADS1115)
+I2CIP_DEVICE_INIT_STATIC_ID(ADS1115);
+I2CIP_INPUT_INIT_RESET(ADS1115, float, NAN, i2cip_ads1115_chsel_t, ADS1115_CHANNEL_0);
+// I2CIP_INPUT_INIT_RESET(ADS1115, float, NAN, i2cip_ads1115_chsel_t, ADS1115_CHANNEL_M);
 
 ADS1115::ADS1115(i2cip_fqa_t fqa, const i2cip_id_t& id) : Device(fqa, id), InputInterface<float, i2cip_ads1115_chsel_t>((Device*)this) { }
 
@@ -54,38 +55,40 @@ i2cip_errorlevel_t ADS1115::get(float& dest, const i2cip_ads1115_chsel_t& args) 
     ADS1115_REG_CONFIG_OS_SINGLE;     // Set 'start single-conversion' bit
 
   // Overwrite config register
-  i2cip_errorlevel_t errlev = this->writeRegister(ADS1115_REG_POINTER_CONFIG, config);
+  uint8_t instr[2] = { (ADS1115_REG_POINTER_CONFIG >> 8) & 0xFF, ADS1115_REG_POINTER_CONFIG & 0xFF };
+  i2cip_errorlevel_t errlev = this->writeRegister(ADS1115_REG_POINTER_CONFIG, instr, 2, false);
   I2CIP_ERR_BREAK(errlev);
 
-  // Write threshold registers
-  uint16_t instr = 0x8000;
-  errlev = this->writeRegister(ADS1115_REG_POINTER_HITHRESH, instr);
+  // Write threshold registers [0x8000, 0x0000]
+  instr[0] = 0x80; instr[1] = 0x00;
+  errlev = this->writeRegister(ADS1115_REG_POINTER_HITHRESH, instr, 2, false);
   I2CIP_ERR_BREAK(errlev);
 
-  instr = 0x0;
-  errlev = this->writeRegister(ADS1115_REG_POINTER_LOWTHRESH, instr);
+  instr[0] = 0x00; instr[1] = 0x00;
+  errlev = this->writeRegister(ADS1115_REG_POINTER_LOWTHRESH, instr, 2, false);
   I2CIP_ERR_BREAK(errlev);
 
   // Wait for the conversion to complete
   uint8_t timeout = 0;
   uint16_t ready = 0;
   do {
-    if(timeout == I2CIP_ADS1115_TIMEOUT) {
+    errlev = this->readRegisterWord(ADS1115_REG_POINTER_CONFIG, ready, false, false);
+    timeout++;
+    if(timeout >= I2CIP_ADS1115_TIMEOUT) {
       errlev = I2CIP_ERR_SOFT;
       break;
     }
-    errlev = this->readRegisterWord(ADS1115_REG_POINTER_CONFIG, ready);
-    timeout++;
+    delayMicroseconds(200);
   } while(((ready & 0x8000) == 0) && (errlev == I2CIP_ERR_NONE));
   I2CIP_ERR_BREAK(errlev);
 
   // Read the conversion results
   uint16_t result;
-  errlev = this->readRegisterWord(ADS1115_REG_POINTER_CONVERT, result);
+  errlev = this->readRegisterWord(ADS1115_REG_POINTER_CONVERT, result, false, false);
   I2CIP_ERR_BREAK(errlev);
   uint8_t buf [2] = { 0 };
   size_t readlen = 2;
-  result &= this->read(buf, readlen);
+  result &= this->read(buf, readlen, false, false, false);
 
   // Shift 12-bit results right 4 bits for the ADS1015, making sure we keep the sign bit intact
   uint16_t res = (((uint16_t)buf[0] << 8) | buf[1]) >> 4;

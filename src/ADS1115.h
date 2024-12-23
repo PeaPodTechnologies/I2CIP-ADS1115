@@ -117,6 +117,8 @@ class ADS1115 : public I2CIP::Device, public I2CIP::InputInterface<float, i2cip_
   #endif
   {
   I2CIP_DEVICE_CLASS_BUNDLE(ADS1115);
+  I2CIP_INPUT_USE_RESET(float, i2cip_ads1115_chsel_t);
+
   I2CIP_INPUT_USE_TOSTRING(float, "%.2f");
   I2CIP_INPUT_ADD_PRINTCACHE(float, "%.2f V");
   #ifdef I2CIP_USE_GUARANTEES
@@ -125,10 +127,6 @@ class ADS1115 : public I2CIP::Device, public I2CIP::InputInterface<float, i2cip_
 
   private:
       bool initialized = false;
-
-      // const i2cip_ads1115_chsel_t _default_args = ADS1115_CHANNEL_NULL; // Uncomment if you want to disable the ADS1115 unless you explicitly set a channel :(
-      const i2cip_ads1115_chsel_t _default_args = ADS1115_CHANNEL_0; // Uncomment if you want to enable the ADS1115 by default using channel 0 :)
-      const float _default_cache = NAN;
 
       static float computeVolts(int16_t counts);
 
@@ -147,9 +145,6 @@ class ADS1115 : public I2CIP::Device, public I2CIP::InputInterface<float, i2cip_
        * @param args Number of bytes to read
        **/
       i2cip_errorlevel_t get(float& dest, const i2cip_ads1115_chsel_t& args = ADS1115_CHANNEL_NULL) override;
-
-      void clearCache(void) override { this->setCache(this->_default_cache); }
-      const i2cip_ads1115_chsel_t& getDefaultA(void) const override { return this->_default_args; };
 };
 
 #endif
